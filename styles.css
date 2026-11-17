@@ -95,3 +95,16 @@ body:has(.customer-wrapper){background:radial-gradient(circle at 8% 5%,#f8dceb 0
 .plan-change-card.chosen{border-color:#70839b;background:#f1f4f8}
 .plan-change-card input{accent-color:var(--navy)}
 @media(max-width:620px){.profile-edit-grid{grid-template-columns:1fr}.profile-edit-grid .full{grid-column:auto}}
+
+/* Cloud version: sign-in and status screens, sync badge */
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px 16px;background:var(--navydeep)}
+.login-card{width:100%;max-width:440px;display:flex;flex-direction:column;gap:10px}
+.login-brand{font-family:Georgia,serif;letter-spacing:.14em;font-size:22px;color:var(--navy)}
+.login-brand small{display:block;font-size:10px;letter-spacing:.25em;color:var(--mint-deep);margin-top:4px}
+.login-card .input{width:100%;font-size:16px}
+.login-submit{margin-top:8px;width:100%}
+.login-error{background:var(--invalid-bg);border-color:#f0c2c9;color:var(--invalid)}
+.sync-note{background:none;border:0;cursor:pointer;font:inherit;color:inherit;padding:0}
+.dot.dot-offline{background:#c9a86a}
+.dot.dot-error{background:var(--invalid)}
+.sidebar-footer button+button{margin-top:8px}

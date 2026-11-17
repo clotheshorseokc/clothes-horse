@@ -1,0 +1,12 @@
+rules_version = '2';
+// Only signed-in staff can read or change records. Everyone else is refused.
+// Public sign-up is turned off in Firebase (Authentication > Settings), so only accounts
+// the owner adds in the Firebase console can sign in.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{collection}/{docId} {
+      allow read, write: if request.auth != null
+        && collection in ['members', 'pieces', 'visits', 'notes', 'issues', 'membershipChanges', 'settings'];
+    }
+  }
+}
