@@ -108,3 +108,10 @@ body:has(.customer-wrapper){background:radial-gradient(circle at 8% 5%,#f8dceb 0
 .dot.dot-offline{background:#c9a86a}
 .dot.dot-error{background:var(--invalid)}
 .sidebar-footer button+button{margin-top:8px}
+
+/* Member photo viewer */
+.photo-large{display:block;width:100%;max-height:60vh;object-fit:contain;background:#f1f3f6;border-radius:12px;margin:14px 0}
+.photo-empty{aspect-ratio:1/1;max-height:340px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--navy);font-family:Georgia,serif}
+.photo-empty span{font-size:72px;line-height:1}
+.photo-empty small{font-family:inherit;font-size:12px;color:var(--muted)}
+.photo-viewer .button{white-space:nowrap}
