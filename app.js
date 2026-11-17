@@ -350,5 +350,5 @@ async function boot(){render();
 }
 document.addEventListener('input',scheduleSave);document.addEventListener('change',scheduleSave);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')saveAll()});window.addEventListener('pagehide',saveAll);
-if('serviceWorker' in navigator&&location.protocol!=='file:')navigator.serviceWorker.register('sw.js').catch(()=>{});
+if('serviceWorker' in navigator&&location.protocol!=='file:')navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).catch(()=>{});
 document.addEventListener('click',onClick);document.addEventListener('input',onInput);document.addEventListener('change',onChange);boot();
