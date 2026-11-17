@@ -1,7 +1,7 @@
 // Connects the app to Firebase: staff sign-in (Firebase Auth) and cloud records (Firestore).
 // app.js talks to this file only through window.cloud.
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
-import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail, EmailAuthProvider, reauthenticateWithCredential } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, doc, onSnapshot, writeBatch, getDocsFromServer, getDocs } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
 import { firebaseConfig } from './firebase-config.js';
 
@@ -26,6 +26,13 @@ window.cloud = {
   async signIn(email, password) { try { await signInWithEmailAndPassword(auth, email, password); return ''; } catch (e) { return friendlyAuthError(e); } },
   async resetPassword(email) { try { await sendPasswordResetEmail(auth, email); return ''; } catch (e) { return friendlyAuthError(e); } },
   signOut() { return signOut(auth); },
+  // Checks the signed-in staff member's password again (used for the staff PIN). Needs internet.
+  async verifyPassword(password) {
+    const user = auth.currentUser;
+    if (!user || !password) return 'Enter your Clothes Horse password.';
+    try { await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, password)); return ''; }
+    catch (e) { const code = (e && e.code) || ''; if (code.includes('invalid-credential') || code.includes('wrong-password')) return 'That password is not right. Please try again.'; return friendlyAuthError(e); }
+  },
   // Calls cb(name, docs, fromCache, hasPendingWrites) whenever a collection changes, on any device.
   subscribe(names, cb, onError) {
     return names.map(name => onSnapshot(collection(db, name), { includeMetadataChanges: true },
