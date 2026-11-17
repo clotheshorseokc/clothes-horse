@@ -1,12 +1,62 @@
 rules_version = '2';
-// Only signed-in staff can read or change records. Everyone else is refused.
-// Public sign-up is turned off in Firebase (Authentication > Settings), so only accounts
-// the owner adds in the Firebase console can sign in.
+// Clothes Horse database rules.
+// Every signed-in account must also have a role (roles/{uid}): "staff" or "manager".
+// - staff and managers: read and write customer records (members, pieces, visits, notes, issues, membershipChanges)
+// - managers only: change prices and PINs, approve or remove staff, read the manager PIN
+// Public sign-up is also turned off in Firebase (Authentication > Settings), so only accounts
+// created in the Firebase console can sign in at all.
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{collection}/{docId} {
-      allow read, write: if request.auth != null
-        && collection in ['members', 'pieces', 'visits', 'notes', 'issues', 'membershipChanges', 'settings'];
+    function signedIn() { return request.auth != null; }
+    function roleOf(uid) { return get(/databases/$(database)/documents/roles/$(uid)).data.role; }
+    function hasRole() { return signedIn() && exists(/databases/$(database)/documents/roles/$(request.auth.uid)); }
+    function isStaff() { return hasRole() && roleOf(request.auth.uid) in ['staff', 'manager']; }
+    function isManager() { return hasRole() && roleOf(request.auth.uid) == 'manager'; }
+
+    // Customer records: any approved staff member or manager.
+    match /{coll}/{docId} {
+      allow read, write: if isStaff()
+        && coll in ['members', 'pieces', 'visits', 'notes', 'issues', 'membershipChanges'];
+    }
+
+    // Prices and the staff PIN: staff can read them (the app needs them), only managers can change them.
+    match /settings/{docId} {
+      allow read: if isStaff();
+      allow write: if isManager() && docId in ['prices', 'security'];
+    }
+
+    // The manager PIN: managers only.
+    match /managerOnly/{docId} {
+      allow read, write: if isManager();
+    }
+
+    // Roles. Each person can read their own role; managers can read and change everyone's.
+    match /roles/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isManager());
+      allow write: if isManager();
+      // First-time setup: the very first account to open the app becomes the manager (owner),
+      // and only in the same save that records it as the owner.
+      allow create: if signedIn() && request.auth.uid == uid
+        && request.resource.data.role == 'manager'
+        && !exists(/databases/$(database)/documents/meta/owner)
+        && getAfter(/databases/$(database)/documents/meta/owner).data.uid == request.auth.uid;
+    }
+
+    // Records who the owner is. Can be written once, ever.
+    match /meta/owner {
+      allow read: if signedIn();
+      allow create: if signedIn() && !exists(/databases/$(database)/documents/meta/owner)
+        && request.resource.data.uid == request.auth.uid
+        && getAfter(/databases/$(database)/documents/roles/$(request.auth.uid)).data.role == 'manager';
+    }
+
+    // A signed-in account with no role can ask for access; managers approve it in the app.
+    match /accessRequests/{uid} {
+      allow create, update: if signedIn() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['email', 'requestedAt'])
+        && request.resource.data.email == request.auth.token.email;
+      allow read: if signedIn() && (request.auth.uid == uid || isManager());
+      allow delete: if isManager();
     }
   }
 }

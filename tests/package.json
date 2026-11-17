@@ -1,0 +1,15 @@
+{
+  "name": "clothes-horse-tests",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:rules": "firebase emulators:exec --only firestore --project clothes-horse \"node rules.test.mjs\"",
+    "test:e2e": "firebase emulators:exec --only firestore,auth --project clothes-horse \"node e2e.test.mjs\""
+  },
+  "devDependencies": {
+    "firebase-tools": "13.29.1",
+    "firebase": "10.14.1",
+    "@firebase/rules-unit-testing": "3.0.4",
+    "playwright": "1.48.2"
+  }
+}
