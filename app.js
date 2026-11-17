@@ -323,7 +323,7 @@ window.addEventListener('online',updateSyncBadge);window.addEventListener('offli
 function loginScreen(){return `<main class="login-wrap"><section class="card kiosk-card login-card"><div class="login-brand">CLOTHES HORSE<small>THE RENTAL CLOSET</small></div><h1 class="kiosk-title">Staff sign in</h1><p class="small subtle">Use the email and password set up for you in Firebase.</p>${login.error?`<div class="notice login-error">${esc(login.error)}</div>`:''}${login.info?`<div class="notice green">${esc(login.info)}</div>`:''}<label class="field-label" for="login-email">Email</label><input class="input" id="login-email" type="email" autocomplete="username" autocapitalize="none" value="${esc(login.email)}"><label class="field-label" for="login-password">Password</label><input class="input" id="login-password" type="password" autocomplete="current-password" value="${esc(login.password)}"><button class="button primary login-submit" data-login="yes" ${login.busy?'disabled':''}>${login.busy?'Signing in…':'Sign in'}</button><button class="button ghost" data-forgot="yes">Forgot password?</button></section></main>`}
 function statusScreen(title,body,retry){return `<main class="login-wrap"><section class="card kiosk-card login-card"><div class="login-brand">CLOTHES HORSE<small>THE RENTAL CLOSET</small></div><h1 class="kiosk-title">${esc(title)}</h1><p class="small subtle">${esc(body)}</p>${retry?'<button class="button primary login-submit" data-retry="yes">Try again</button><button class="button ghost" data-signout="yes">Sign out</button>':''}</section></main>`}
 function downloadBackup(){const data={app:'Clothes Horse',exportedAt:new Date().toISOString(),exportedBy:cloudUser?.email||'',state,typePrices,signaturePrices,signatureExtra};const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='clothes-horse-backup-'+TODAY()+'.json';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000)}
-async function doLogin(){login.email=(document.getElementById('login-email')?.value||'').trim();login.password=document.getElementById('login-password')?.value||'';login.info='';if(!login.email||!login.password){login.error='Enter your email and password.';render();return}login.busy=true;login.error='';render();const err=await cloud.signIn(login.email,login.password);login.busy=false;if(err){login.error=err;render()}else{login.password=''}}
+async function doLogin(){login.email=(document.getElementById('login-email')?.value||'').trim();login.password=document.getElementById('login-password')?.value||'';login.info='';if(!login.email||!login.password){login.error='Enter your email and password.';render();return}login.busy=true;login.error='';render();const err=await cloud.signIn(login.email,login.password);login.busy=false;if(err){login.error=err;render()}else{login.password='';appLocked=false;lastActivity=Date.now()}}
 async function doForgot(){login.email=(document.getElementById('login-email')?.value||'').trim();login.error='';login.info='';if(!login.email){login.error='Type your email first, then tap Forgot password.';render();return}const err=await cloud.resetPassword(login.email);if(err)login.error=err;else login.info='If that email has a staff account, a reset link is on its way.';render()}
 document.addEventListener('click',e=>{const t=e.target.closest('button');if(!t)return;
  if(t.dataset.login){e.stopImmediatePropagation();doLogin()}
@@ -334,19 +334,38 @@ document.addEventListener('click',e=>{const t=e.target.closest('button');if(!t)r
  else if(t.dataset.syncInfo){e.stopImmediatePropagation();alert(syncState==='error'?'The last save to the cloud did not go through ('+cloudError+'). Your changes are still on this device. Check the internet connection; if this keeps happening, use Download backup and contact support.':navigator.onLine?'All changes are saved to the cloud.':'This device is offline. Changes are kept on this device and will upload automatically when it reconnects.')}
 },true);
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&(e.target.id==='login-password'||e.target.id==='login-email')){e.preventDefault();doLogin()}});
+// ---- App lock: the device stays signed in to the cloud, but the app asks for the staff PIN each time it opens and after idle time. ----
+const IDLE_LOCK_MS=10*60*1000;
+let appLocked=true,lastActivity=Date.now(),lockUsePassword=false;
+['pointerdown','keydown'].forEach(t=>document.addEventListener(t,()=>{lastActivity=Date.now()},true));
+setInterval(()=>{if(!appLocked&&isReady()&&cloudUser&&view!=='signup'&&Date.now()-lastActivity>IDLE_LOCK_MS)lockApp()},20000);
+function lockApp(){appLocked=true;lockUsePassword=false;closeStaffPin();render()}
+function lockScreen(){const usePw=lockUsePassword||!staffPin;return `<main class="login-wrap"><section class="card kiosk-card login-card"><div class="login-brand">CLOTHES HORSE<small>THE RENTAL CLOSET</small></div><h1 class="kiosk-title">${usePw?'Enter password':'Enter staff PIN'}</h1><p class="small subtle">${usePw?(staffPin?'Enter the Clothes Horse password for '+esc(cloudUser?.email||'')+'.':'No staff PIN is set yet, so enter the Clothes Horse password for '+esc(cloudUser?.email||'')+'. Then choose a PIN with “Set staff PIN” in the menu.'):'The app locks when it is opened and after 10 minutes without use.'}</p>${usePw?'<label class="field-label" for="lock-password">Password</label><input class="input" id="lock-password" type="password" autocomplete="current-password">':'<label class="field-label" for="lock-pin">Staff PIN</label><input class="input pin-input" id="lock-pin" type="password" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="••••">'}<div id="lock-error" class="staff-pin-error" role="alert" aria-live="polite"></div><button class="button primary login-submit" data-lock-unlock="yes">Unlock</button>${usePw?(staffPin?'<button class="button ghost" data-lock-mode="pin">Use staff PIN instead</button>':''):'<button class="button ghost" data-lock-mode="password">Forgot PIN? Use password</button>'}<button class="button ghost" data-signout="yes">Sign out of this device</button></section></main>`}
+async function unlockApp(){const box=document.getElementById('lock-error');const say=(m,id)=>{if(box)box.textContent=m;const i=document.getElementById(id);if(i){i.value='';i.focus()}};
+ const pinInput=document.getElementById('lock-pin'),pwInput=document.getElementById('lock-password');
+ if(pinInput){if(Date.now()<pinLockedUntil){say('Too many tries. Wait a minute, or use your password.','lock-pin');return}if((await hashPin(pinInput.value.trim(),staffPin.salt))!==staffPin.hash){pinFails++;if(pinFails>=5){pinLockedUntil=Date.now()+60000;pinFails=0}say('Incorrect PIN. Please try again.','lock-pin');return}}
+ else if(pwInput){const btn=document.querySelector('[data-lock-unlock]');if(btn)btn.disabled=true;const err=await cloud.verifyPassword(pwInput.value);if(btn)btn.disabled=false;if(err){say(err,'lock-password');return}}
+ else return;
+ pinFails=0;appLocked=false;lastActivity=Date.now();render()}
+document.addEventListener('click',e=>{const t=e.target.closest('button');if(!t)return;
+ if(t.dataset.lockUnlock){e.stopImmediatePropagation();unlockApp()}
+ else if(t.dataset.lockMode){e.stopImmediatePropagation();lockUsePassword=t.dataset.lockMode==='password';render();document.getElementById(lockUsePassword?'lock-password':'lock-pin')?.focus()}
+},true);
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&(e.target.id==='lock-pin'||e.target.id==='lock-password')){e.preventDefault();unlockApp()}});
 const _render=render;render=function(){const app=document.getElementById('app');
  if(cloudPhase==='starting'){app.innerHTML=statusScreen('Opening…','Connecting to Clothes Horse.');return}
  if(cloudPhase==='failed'){app.innerHTML=statusScreen('Could not start','The app could not load its cloud connection. Check the internet connection and reopen the app.',false);return}
  if(!cloudUser){app.innerHTML=loginScreen();return}
  if(cloudPhase==='loading'){app.innerHTML=statusScreen('Loading records…','Getting the latest customer records.');return}
  if(cloudPhase==='error'){app.innerHTML=statusScreen('Records could not load',cloudError,true);return}
+ if(appLocked){app.innerHTML=lockScreen();setTimeout(()=>{const i=document.getElementById('lock-pin')||document.getElementById('lock-password');if(i&&document.activeElement!==i)i.focus()},0);return}
  _render();scheduleSave()};
 async function boot(){render();
  const timeout=new Promise(r=>setTimeout(()=>r(null),15000));
  cloud=await Promise.race([window.cloudReady,timeout]);
  if(!cloud){cloudPhase='failed';render();return}
  cloudPhase='signedout';
- cloud.onUser(user=>{const was=cloudUser?.uid;cloudUser=user;if(user&&user.uid!==was){startSync()}else if(!user){stopSync();cloudPhase='signedout';view='dashboard';render()}});
+ cloud.onUser(user=>{const was=cloudUser?.uid;cloudUser=user;if(user&&user.uid!==was){startSync()}else if(!user){stopSync();appLocked=true;cloudPhase='signedout';view='dashboard';render()}});
 }
 document.addEventListener('input',scheduleSave);document.addEventListener('change',scheduleSave);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')saveAll()});window.addEventListener('pagehide',saveAll);
