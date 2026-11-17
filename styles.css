@@ -115,3 +115,6 @@ body:has(.customer-wrapper){background:radial-gradient(circle at 8% 5%,#f8dceb 0
 .photo-empty span{font-size:72px;line-height:1}
 .photo-empty small{font-family:inherit;font-size:12px;color:var(--muted)}
 .photo-viewer .button{white-space:nowrap}
+
+/* More room between the business name and the menu */
+.sidebar .brand{margin-bottom:64px}
